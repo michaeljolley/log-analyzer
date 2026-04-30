@@ -8,6 +8,9 @@ export interface LogEntry {
   lineNumber: number | null
   message: string
   fullText: string
+  logArea: LogArea
+  logDate: string
+  sortKey: string
 }
 
 export interface LogIssue {
@@ -34,6 +37,7 @@ export interface LogFile {
 export interface AnalysisResult {
   files: LogFile[]
   issues: LogIssue[]
+  entries: LogEntry[]
   summary: AnalysisSummary
 }
 

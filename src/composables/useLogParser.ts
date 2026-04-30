@@ -36,6 +36,9 @@ export function useLogParser() {
           lineNumber: parseInt(mainMatch[5], 10),
           message: '',
           fullText: trimmed,
+          logArea: 'CmdPal',
+          logDate: '',
+          sortKey: '',
         }
         continue
       }
@@ -52,6 +55,9 @@ export function useLogParser() {
           lineNumber: null,
           message: moduleMatch[3],
           fullText: trimmed,
+          logArea: 'CmdPal',
+          logDate: '',
+          sortKey: '',
         }
         continue
       }

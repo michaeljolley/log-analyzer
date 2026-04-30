@@ -10,6 +10,7 @@ export function useAnalysis() {
 
   function analyze(logFiles: LogFile[]): AnalysisResult {
     const issueMap = new Map<string, LogIssue>()
+    const allIssueEntries: LogEntry[] = []
     let totalEntries = 0
     let issueIdCounter = 0
 
@@ -31,7 +32,16 @@ export function useAnalysis() {
       totalEntries += entries.length
 
       for (const entry of entries) {
+        // Attach area and date metadata
+        entry.logArea = logFile.area
+        entry.logDate = logFile.date
+
+        // Build a sortable key: date + timestamp
+        entry.sortKey = `${logFile.date}T${entry.timestamp}`
+
         if (entry.level !== 'Error' && entry.level !== 'Warning') continue
+
+        allIssueEntries.push(entry)
 
         // Update summary
         if (entry.level === 'Error') {
@@ -82,12 +92,14 @@ export function useAnalysis() {
     summary.totalEntries = totalEntries
 
     const issues = Array.from(issueMap.values()).sort((a, b) => {
-      // Sort errors before warnings, then by occurrence count
       if (a.level !== b.level) return a.level === 'Error' ? -1 : 1
       return b.occurrences - a.occurrences
     })
 
-    return { files: logFiles, issues, summary }
+    // Sort entries newest first
+    allIssueEntries.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
+
+    return { files: logFiles, issues, entries: allIssueEntries, summary }
   }
 
   return { analyze }
