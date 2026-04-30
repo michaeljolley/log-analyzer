@@ -172,7 +172,7 @@ const areaLabel: Record<LogArea, string> = {
             <div class="flex items-start justify-between gap-3">
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
-                  <SeverityBadge v-if="entry.level === 'Error' || entry.level === 'Warning'" :level="entry.level" />
+                  <SeverityBadge v-if="entry.level === 'Error' || entry.level === 'Warning'" :level="entry.message.toLowerCase().includes('exception') ? 'Exception' : entry.level" />
                   <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{{ areaLabel[entry.logArea] }}</span>
                   <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">{{ entry.logDate }} {{ entry.timestamp }}</span>
                 </div>
