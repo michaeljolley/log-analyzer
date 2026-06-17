@@ -24,13 +24,13 @@ async function handleFileSelected(file: File) {
   isAnalyzing.value = true
 
   try {
-    const logFiles = await extractZip(file)
-    if (logFiles.length === 0 && !extractError.value) {
-      extractError.value = 'No CmdPal log files found in the zip archive.'
+    const { files } = await extractZip(file)
+    if (files.length === 0 && !extractError.value) {
+      extractError.value = 'No PowerToys log files found in the zip archive.'
       return
     }
-    if (logFiles.length > 0) {
-      result.value = analyze(logFiles)
+    if (files.length > 0) {
+      result.value = analyze(files)
     }
   } finally {
     isAnalyzing.value = false
@@ -53,7 +53,7 @@ function handleReset() {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">CmdPal Log Analyzer</h1>
+          <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100">PowerToys Log Analyzer</h1>
         </div>
         <div class="flex items-center gap-3">
           <button

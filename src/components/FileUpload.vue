@@ -37,7 +37,7 @@ function validateAndEmit(file: File) {
     <div class="text-center mb-8">
       <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Analyze PowerToys Logs</h2>
       <p class="text-gray-600 dark:text-gray-400">
-        Upload a PowerToys diagnostic zip file to analyze Command Palette logs for errors and warnings.
+        Upload a PowerToys diagnostic zip file to analyze PowerToys logs for errors and warnings across all modules.
       </p>
     </div>
 
@@ -63,7 +63,7 @@ function validateAndEmit(file: File) {
           </svg>
         </div>
         <div>
-          <p class="text-gray-700 dark:text-gray-200 font-medium">Drop your PowerToys zip file here</p>
+          <p class="text-gray-700 dark:text-gray-200 font-medium">Drop your PowerToys diagnostic zip file here</p>
           <p class="text-gray-500 dark:text-gray-400 text-sm mt-1">or click to browse</p>
         </div>
       </div>
