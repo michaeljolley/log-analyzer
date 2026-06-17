@@ -98,21 +98,6 @@ const areaLabel: Record<LogArea, string> = {
       </div>
     </div>
 
-    <!-- Issues by Area -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-      <div
-        v-for="(stats, area) in result.summary.byArea"
-        :key="area"
-        class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm"
-      >
-        <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ areaLabel[area as LogArea] }}</p>
-        <div class="flex gap-4 text-sm">
-          <span class="text-red-600 dark:text-red-400">{{ stats.errors }} errors</span>
-          <span class="text-yellow-600 dark:text-yellow-400">{{ stats.warnings }} warnings</span>
-        </div>
-      </div>
-    </div>
-
     <!-- No issues state -->
     <div v-if="result.entries.length === 0" class="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
       <div class="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
