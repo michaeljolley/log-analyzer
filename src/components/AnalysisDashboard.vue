@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { AnalysisResult, LogArea } from '@/types'
 import SeverityBadge from './SeverityBadge.vue'
 
@@ -7,10 +7,34 @@ const props = defineProps<{
   result: AnalysisResult
 }>()
 
+const MODULE_SELECTION_KEY = 'cmdpal-log-analyzer:selected-module'
+
 type FilterLevel = 'all' | 'Error' | 'Warning' | 'Exception'
 const filterLevel = ref<FilterLevel>('all')
 const filterArea = ref<'all' | LogArea>('all')
 const expandedIndex = ref<number | null>(null)
+
+const availableAreas = computed(() => {
+  return Array.from(new Set(props.result.files.map((file) => file.area)))
+})
+
+function getStoredArea(): LogArea | null {
+  const stored = localStorage.getItem(MODULE_SELECTION_KEY)
+  return stored && (stored === 'CmdPal' || stored === 'ModuleInterface' || stored === 'PowerToysExtension')
+    ? stored
+    : null
+}
+
+function applyStoredArea() {
+  const storedArea = getStoredArea()
+
+  if (storedArea && availableAreas.value.includes(storedArea)) {
+    filterArea.value = storedArea
+    return
+  }
+
+  filterArea.value = 'all'
+}
 
 const filteredEntries = computed(() => {
   return props.result.entries.filter(entry => {
@@ -31,11 +55,28 @@ function setFilter(level: FilterLevel) {
 function clearFilters() {
   filterLevel.value = 'all'
   filterArea.value = 'all'
+  localStorage.removeItem(MODULE_SELECTION_KEY)
 }
 
 function toggleExpanded(idx: number) {
   expandedIndex.value = expandedIndex.value === idx ? null : idx
 }
+
+watch(
+  () => props.result,
+  () => {
+    applyStoredArea()
+  },
+  { immediate: true },
+)
+
+watch(filterArea, (value) => {
+  if (value === 'all') {
+    localStorage.removeItem(MODULE_SELECTION_KEY)
+  } else {
+    localStorage.setItem(MODULE_SELECTION_KEY, value)
+  }
+})
 
 const areaLabel: Record<LogArea, string> = {
   CmdPal: 'Command Palette',
@@ -127,9 +168,7 @@ const areaLabel: Record<LogArea, string> = {
           class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="all">All Areas</option>
-          <option value="CmdPal">Command Palette</option>
-          <option value="ModuleInterface">Module Interface</option>
-          <option value="PowerToysExtension">PowerToys Extension</option>
+          <option v-for="area in availableAreas" :key="area" :value="area">{{ areaLabel[area] }}</option>
         </select>
         <span class="text-sm text-gray-500 dark:text-gray-400 self-center">
           {{ filteredEntries.length }} entr{{ filteredEntries.length !== 1 ? 'ies' : 'y' }}
