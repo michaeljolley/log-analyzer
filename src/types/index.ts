@@ -24,7 +24,7 @@ export interface LogIssue {
   logArea: LogArea
 }
 
-export type LogArea = 'CmdPal' | 'ModuleInterface' | 'PowerToysExtension'
+export type LogArea = string
 
 export interface LogFile {
   path: string
@@ -46,6 +46,6 @@ export interface AnalysisSummary {
   errorCount: number
   warningCount: number
   exceptionCount: number
-  byArea: Record<LogArea, { errors: number; warnings: number }>
+  byArea: Record<string, { errors: number; warnings: number }>
   bySourceFile: Record<string, { errors: number; warnings: number }>
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { AnalysisResult, LogArea } from '@/types'
+import type { AnalysisResult } from '@/types'
 import SeverityBadge from './SeverityBadge.vue'
 
 const props = defineProps<{
@@ -9,11 +9,15 @@ const props = defineProps<{
 
 type FilterLevel = 'all' | 'Error' | 'Warning' | 'Exception'
 const filterLevel = ref<FilterLevel>('all')
-const filterArea = ref<'all' | LogArea>('all')
+const filterArea = ref<'all' | string>('all')
 const expandedIndex = ref<number | null>(null)
 
+const modules = computed(() => {
+  return Array.from(new Set(props.result.files.map((file) => file.area))).sort((a, b) => a.localeCompare(b))
+})
+
 const filteredEntries = computed(() => {
-  return props.result.entries.filter(entry => {
+  return props.result.entries.filter((entry) => {
     if (filterLevel.value === 'Exception') {
       if (!entry.message.toLowerCase().includes('exception')) return false
     } else if (filterLevel.value !== 'all' && entry.level !== filterLevel.value) {
@@ -37,16 +41,17 @@ function toggleExpanded(idx: number) {
   expandedIndex.value = expandedIndex.value === idx ? null : idx
 }
 
-const areaLabel: Record<LogArea, string> = {
-  CmdPal: 'Command Palette',
-  ModuleInterface: 'Module Interface',
-  PowerToysExtension: 'PowerToys Extension',
+function formatModuleLabel(area: string) {
+  return area
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 </script>
 
 <template>
   <div>
-    <!-- Summary Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       <div
         @click="clearFilters"
@@ -90,7 +95,7 @@ const areaLabel: Record<LogArea, string> = {
           'rounded-xl border p-5 shadow-sm cursor-pointer transition-all',
           filterLevel === 'Exception'
             ? 'bg-purple-50 dark:bg-purple-950 border-purple-400 dark:border-purple-600 ring-2 ring-purple-300 dark:ring-purple-700'
-            : 'bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-900 hover:bg-purple-50 dark:hover:bg-purple-950 hover:border-purple-400 dark:hover:border-purple-600'
+            : 'bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-900 hover:bg-purple-50 dark:hover:bg-purple-950 hover:border-purple-400 dark:hover:border-red-600'
         ]"
       >
         <p class="text-sm text-purple-600 dark:text-purple-400 font-medium">Exceptions</p>
@@ -98,14 +103,13 @@ const areaLabel: Record<LogArea, string> = {
       </div>
     </div>
 
-    <!-- Issues by Area -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
       <div
         v-for="(stats, area) in result.summary.byArea"
         :key="area"
         class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm"
       >
-        <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ areaLabel[area as LogArea] }}</p>
+        <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ formatModuleLabel(area) }}</p>
         <div class="flex gap-4 text-sm">
           <span class="text-red-600 dark:text-red-400">{{ stats.errors }} errors</span>
           <span class="text-yellow-600 dark:text-yellow-400">{{ stats.warnings }} warnings</span>
@@ -113,7 +117,6 @@ const areaLabel: Record<LogArea, string> = {
       </div>
     </div>
 
-    <!-- No issues state -->
     <div v-if="result.entries.length === 0" class="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
       <div class="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
         <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -124,9 +127,7 @@ const areaLabel: Record<LogArea, string> = {
       <p class="text-gray-500 dark:text-gray-400 mt-1">The logs look clean — no errors or warnings detected.</p>
     </div>
 
-    <!-- Sequential Entry List -->
     <div v-else>
-      <!-- Filters -->
       <div class="flex flex-wrap gap-3 mb-4">
         <select
           v-model="filterLevel"
@@ -141,10 +142,8 @@ const areaLabel: Record<LogArea, string> = {
           v-model="filterArea"
           class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="all">All Areas</option>
-          <option value="CmdPal">Command Palette</option>
-          <option value="ModuleInterface">Module Interface</option>
-          <option value="PowerToysExtension">PowerToys Extension</option>
+          <option value="all">All Modules</option>
+          <option v-for="module in modules" :key="module" :value="module">{{ formatModuleLabel(module) }}</option>
         </select>
         <span class="text-sm text-gray-500 dark:text-gray-400 self-center">
           {{ filteredEntries.length }} entr{{ filteredEntries.length !== 1 ? 'ies' : 'y' }}
@@ -158,7 +157,6 @@ const areaLabel: Record<LogArea, string> = {
         </button>
       </div>
 
-      <!-- Entries -->
       <div class="space-y-2">
         <div
           v-for="(entry, idx) in filteredEntries"
@@ -173,7 +171,7 @@ const areaLabel: Record<LogArea, string> = {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
                   <SeverityBadge v-if="entry.level === 'Error' || entry.level === 'Warning'" :level="entry.message.toLowerCase().includes('exception') ? 'Exception' : entry.level" />
-                  <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{{ areaLabel[entry.logArea] }}</span>
+                  <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{{ formatModuleLabel(entry.logArea) }}</span>
                   <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">{{ entry.logDate }} {{ entry.timestamp }}</span>
                 </div>
                 <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
@@ -189,9 +187,8 @@ const areaLabel: Record<LogArea, string> = {
               </svg>
             </div>
           </div>
-          <!-- Expanded detail -->
           <div v-if="expandedIndex === idx" class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-4 py-4">
-            <pre class="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">{{ entry.message }}</pre>
+            <pre class="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">{{ entry.fullText }}</pre>
           </div>
         </div>
       </div>

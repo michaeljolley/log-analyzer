@@ -1,10 +1,13 @@
 import type { LogEntry, LogLevel, LogFile } from '@/types'
 
 // Main/Extension format: [HH:mm:ss.ticks] [Level] SourceFile::Method::Line
-const MAIN_LOG_PATTERN = /^\[(\d{2}:\d{2}:\d{2}\.\d+)\]\s+\[(Error|Warning|Info|Trace)\]\s+(.+?)::(.+?)::(\d+)$/
+const MAIN_LOG_PATTERN = /^\[(\d{2}:\d{2}:\d{2}(?:\.\d+)?)\]\s+\[(error|warning|info|trace)\]\s+(.+?)::(.+?)::(\d+)\s*$/i
 
 // ModuleInterface format: [YYYY-MM-DD HH:mm:ss.ffffff] [p-PID] [t-TID] [level] message
 const MODULE_LOG_PATTERN = /^\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+)\]\s+\[p-\d+\]\s+\[t-\d+\]\s+\[(error|warning|info|trace)\]\s+(.+)$/i
+
+// Generic fallback for other module log lines that still follow a timestamp + level + message structure.
+const GENERIC_LOG_PATTERN = /^\[(\d{2}:\d{2}:\d{2}(?:\.\d+)?)\]\s+\[(error|warning|info|trace)\]\s+(.*)$/i
 
 function normalizeLevel(level: string): LogLevel {
   const l = level.toLowerCase()
@@ -24,7 +27,6 @@ export function useLogParser() {
       const trimmed = line.trimEnd()
       if (!trimmed) continue
 
-      // Try main/extension format
       const mainMatch = trimmed.match(MAIN_LOG_PATTERN)
       if (mainMatch) {
         if (currentEntry) entries.push(currentEntry)
@@ -36,14 +38,13 @@ export function useLogParser() {
           lineNumber: parseInt(mainMatch[5], 10),
           message: '',
           fullText: trimmed,
-          logArea: 'CmdPal',
+          logArea: logFile.area,
           logDate: '',
           sortKey: '',
         }
         continue
       }
 
-      // Try module interface format
       const moduleMatch = trimmed.match(MODULE_LOG_PATTERN)
       if (moduleMatch) {
         if (currentEntry) entries.push(currentEntry)
@@ -55,14 +56,31 @@ export function useLogParser() {
           lineNumber: null,
           message: moduleMatch[3],
           fullText: trimmed,
-          logArea: 'CmdPal',
+          logArea: logFile.area,
           logDate: '',
           sortKey: '',
         }
         continue
       }
 
-      // Continuation line (indented or part of multiline message)
+      const fallbackMatch = trimmed.match(GENERIC_LOG_PATTERN)
+      if (fallbackMatch) {
+        if (currentEntry) entries.push(currentEntry)
+        currentEntry = {
+          timestamp: fallbackMatch[1],
+          level: normalizeLevel(fallbackMatch[2]),
+          sourceFile: '',
+          method: '',
+          lineNumber: null,
+          message: fallbackMatch[3],
+          fullText: trimmed,
+          logArea: logFile.area,
+          logDate: '',
+          sortKey: '',
+        }
+        continue
+      }
+
       if (currentEntry) {
         const continuation = trimmed.startsWith('    ') ? trimmed.slice(4) : trimmed
         if (!currentEntry.message) {
