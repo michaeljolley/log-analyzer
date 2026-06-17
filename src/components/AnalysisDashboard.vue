@@ -14,8 +14,8 @@ const filterLevel = ref<FilterLevel>('all')
 const filterArea = ref<'all' | LogArea>('all')
 const expandedIndex = ref<number | null>(null)
 
-const availableAreas = computed(() => {
-  return Array.from(new Set(props.result.files.map((file) => file.area)))
+const modules = computed(() => {
+  return Array.from(new Set(props.result.files.map((file) => file.area))).sort((a, b) => a.localeCompare(b))
 })
 
 function getStoredArea(): LogArea | null {
@@ -28,7 +28,7 @@ function getStoredArea(): LogArea | null {
 function applyStoredArea() {
   const storedArea = getStoredArea()
 
-  if (storedArea && availableAreas.value.includes(storedArea)) {
+  if (storedArea && modules.value.includes(storedArea)) {
     filterArea.value = storedArea
     return
   }
@@ -78,10 +78,12 @@ watch(filterArea, (value) => {
   }
 })
 
-const areaLabel: Record<LogArea, string> = {
-  CmdPal: 'Command Palette',
-  ModuleInterface: 'Module Interface',
-  PowerToysExtension: 'PowerToys Extension',
+function formatModuleLabel(area: string) {
+  return area
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 </script>
 
@@ -167,8 +169,8 @@ const areaLabel: Record<LogArea, string> = {
           v-model="filterArea"
           class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="all">All Areas</option>
-          <option v-for="area in availableAreas" :key="area" :value="area">{{ areaLabel[area] }}</option>
+          <option value="all">All Modules</option>
+          <option v-for="module in modules" :key="module" :value="module">{{ formatModuleLabel(module) }}</option>
         </select>
         <span class="text-sm text-gray-500 dark:text-gray-400 self-center">
           {{ filteredEntries.length }} entr{{ filteredEntries.length !== 1 ? 'ies' : 'y' }}
@@ -197,7 +199,7 @@ const areaLabel: Record<LogArea, string> = {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
                   <SeverityBadge v-if="entry.level === 'Error' || entry.level === 'Warning'" :level="entry.message.toLowerCase().includes('exception') ? 'Exception' : entry.level" />
-                  <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{{ areaLabel[entry.logArea] }}</span>
+                  <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{{ formatModuleLabel(entry.logArea) }}</span>
                   <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">{{ entry.logDate }} {{ entry.timestamp }}</span>
                 </div>
                 <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">

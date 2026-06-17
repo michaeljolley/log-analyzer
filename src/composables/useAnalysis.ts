@@ -19,11 +19,7 @@ export function useAnalysis() {
       errorCount: 0,
       warningCount: 0,
       exceptionCount: 0,
-      byArea: {
-        CmdPal: { errors: 0, warnings: 0 },
-        ModuleInterface: { errors: 0, warnings: 0 },
-        PowerToysExtension: { errors: 0, warnings: 0 },
-      },
+      byArea: {},
       bySourceFile: {},
     }
 
@@ -32,18 +28,18 @@ export function useAnalysis() {
       totalEntries += entries.length
 
       for (const entry of entries) {
-        // Attach area and date metadata
         entry.logArea = logFile.area
         entry.logDate = logFile.date
-
-        // Build a sortable key: date + timestamp
         entry.sortKey = `${logFile.date}T${entry.timestamp}`
 
         if (entry.level !== 'Error' && entry.level !== 'Warning') continue
 
+        if (!summary.byArea[logFile.area]) {
+          summary.byArea[logFile.area] = { errors: 0, warnings: 0 }
+        }
+
         allIssueEntries.push(entry)
 
-        // Update summary
         if (entry.level === 'Error') {
           summary.errorCount++
           summary.byArea[logFile.area].errors++
@@ -67,7 +63,6 @@ export function useAnalysis() {
           }
         }
 
-        // Group into issues
         const key = generateIssueKey(entry, logFile.area)
         const existing = issueMap.get(key)
         if (existing) {
@@ -96,7 +91,6 @@ export function useAnalysis() {
       return b.occurrences - a.occurrences
     })
 
-    // Sort entries newest first
     allIssueEntries.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
 
     return { files: logFiles, issues, entries: allIssueEntries, summary }
