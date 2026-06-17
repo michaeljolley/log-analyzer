@@ -1,23 +1,43 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { AnalysisResult } from '@/types'
+import { ref, computed, watch } from 'vue'
+import type { AnalysisResult, LogArea } from '@/types'
 import SeverityBadge from './SeverityBadge.vue'
 
 const props = defineProps<{
   result: AnalysisResult
 }>()
 
+const MODULE_SELECTION_KEY = 'cmdpal-log-analyzer:selected-module'
+
 type FilterLevel = 'all' | 'Error' | 'Warning' | 'Exception'
 const filterLevel = ref<FilterLevel>('all')
-const filterArea = ref<'all' | string>('all')
+const filterArea = ref<'all' | LogArea>('all')
 const expandedIndex = ref<number | null>(null)
 
 const modules = computed(() => {
   return Array.from(new Set(props.result.files.map((file) => file.area))).sort((a, b) => a.localeCompare(b))
 })
 
+function getStoredArea(): LogArea | null {
+  const stored = localStorage.getItem(MODULE_SELECTION_KEY)
+  return stored && (stored === 'CmdPal' || stored === 'ModuleInterface' || stored === 'PowerToysExtension')
+    ? stored
+    : null
+}
+
+function applyStoredArea() {
+  const storedArea = getStoredArea()
+
+  if (storedArea && modules.value.includes(storedArea)) {
+    filterArea.value = storedArea
+    return
+  }
+
+  filterArea.value = 'all'
+}
+
 const filteredEntries = computed(() => {
-  return props.result.entries.filter((entry) => {
+  return props.result.entries.filter(entry => {
     if (filterLevel.value === 'Exception') {
       if (!entry.message.toLowerCase().includes('exception')) return false
     } else if (filterLevel.value !== 'all' && entry.level !== filterLevel.value) {
@@ -35,11 +55,28 @@ function setFilter(level: FilterLevel) {
 function clearFilters() {
   filterLevel.value = 'all'
   filterArea.value = 'all'
+  localStorage.removeItem(MODULE_SELECTION_KEY)
 }
 
 function toggleExpanded(idx: number) {
   expandedIndex.value = expandedIndex.value === idx ? null : idx
 }
+
+watch(
+  () => props.result,
+  () => {
+    applyStoredArea()
+  },
+  { immediate: true },
+)
+
+watch(filterArea, (value) => {
+  if (value === 'all') {
+    localStorage.removeItem(MODULE_SELECTION_KEY)
+  } else {
+    localStorage.setItem(MODULE_SELECTION_KEY, value)
+  }
+})
 
 function formatModuleLabel(area: string) {
   return area
@@ -52,6 +89,7 @@ function formatModuleLabel(area: string) {
 
 <template>
   <div>
+    <!-- Summary Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       <div
         @click="clearFilters"
@@ -95,7 +133,7 @@ function formatModuleLabel(area: string) {
           'rounded-xl border p-5 shadow-sm cursor-pointer transition-all',
           filterLevel === 'Exception'
             ? 'bg-purple-50 dark:bg-purple-950 border-purple-400 dark:border-purple-600 ring-2 ring-purple-300 dark:ring-purple-700'
-            : 'bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-900 hover:bg-purple-50 dark:hover:bg-purple-950 hover:border-purple-400 dark:hover:border-red-600'
+            : 'bg-white dark:bg-gray-800 border-purple-200 dark:border-purple-900 hover:bg-purple-50 dark:hover:bg-purple-950 hover:border-purple-400 dark:hover:border-purple-600'
         ]"
       >
         <p class="text-sm text-purple-600 dark:text-purple-400 font-medium">Exceptions</p>
@@ -114,7 +152,9 @@ function formatModuleLabel(area: string) {
       <p class="text-gray-500 dark:text-gray-400 mt-1">The logs look clean — no errors or warnings detected.</p>
     </div>
 
+    <!-- Sequential Entry List -->
     <div v-else>
+      <!-- Filters -->
       <div class="flex flex-wrap gap-3 mb-4">
         <select
           v-model="filterLevel"
@@ -144,6 +184,7 @@ function formatModuleLabel(area: string) {
         </button>
       </div>
 
+      <!-- Entries -->
       <div class="space-y-2">
         <div
           v-for="(entry, idx) in filteredEntries"
@@ -174,8 +215,9 @@ function formatModuleLabel(area: string) {
               </svg>
             </div>
           </div>
+          <!-- Expanded detail -->
           <div v-if="expandedIndex === idx" class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-4 py-4">
-            <pre class="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">{{ entry.fullText }}</pre>
+            <pre class="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">{{ entry.message }}</pre>
           </div>
         </div>
       </div>
