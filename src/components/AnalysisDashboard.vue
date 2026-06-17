@@ -104,6 +104,7 @@ function formatModuleLabel(area: string) {
 
 <template>
   <div>
+    <!-- Tab Navigation -->
     <div class="flex items-center gap-3 mb-6">
       <button
         type="button"
@@ -136,11 +137,13 @@ function formatModuleLabel(area: string) {
       </button>
     </div>
 
+    <!-- Timeline View -->
     <div v-if="activeTab === 'timeline'" class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
       <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">Timeline view coming soon</p>
       <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Select a specific module to enable timeline details for this analysis.</p>
     </div>
 
+    <!-- Issues View -->
     <div v-else>
       <!-- Summary Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -205,7 +208,7 @@ function formatModuleLabel(area: string) {
         <p class="text-gray-500 dark:text-gray-400 mt-1">The logs look clean — no errors or warnings detected.</p>
       </div>
 
-      <!-- Sequential Entry List -->
+      <!-- Filters and Entries -->
       <div v-else>
         <div class="flex flex-wrap gap-3 mb-4">
           <select
