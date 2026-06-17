@@ -10,8 +10,7 @@ export function useAnalysis() {
 
   function analyze(logFiles: LogFile[]): AnalysisResult {
     const issueMap = new Map<string, LogIssue>()
-    const allIssueEntries: LogEntry[] = []
-    let totalEntries = 0
+    const allEntries: LogEntry[] = []
     let issueIdCounter = 0
 
     const summary: AnalysisSummary = {
@@ -25,20 +24,19 @@ export function useAnalysis() {
 
     for (const logFile of logFiles) {
       const entries = parseLogFile(logFile)
-      totalEntries += entries.length
 
       for (const entry of entries) {
         entry.logArea = logFile.area
         entry.logDate = logFile.date
         entry.sortKey = `${logFile.date}T${entry.timestamp}`
 
+        allEntries.push(entry)
+
         if (entry.level !== 'Error' && entry.level !== 'Warning') continue
 
         if (!summary.byArea[logFile.area]) {
           summary.byArea[logFile.area] = { errors: 0, warnings: 0 }
         }
-
-        allIssueEntries.push(entry)
 
         if (entry.level === 'Error') {
           summary.errorCount++
@@ -84,16 +82,16 @@ export function useAnalysis() {
       }
     }
 
-    summary.totalEntries = totalEntries
+    summary.totalEntries = allEntries.length
 
     const issues = Array.from(issueMap.values()).sort((a, b) => {
       if (a.level !== b.level) return a.level === 'Error' ? -1 : 1
       return b.occurrences - a.occurrences
     })
 
-    allIssueEntries.sort((a, b) => b.sortKey.localeCompare(a.sortKey))
+    allEntries.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
 
-    return { files: logFiles, issues, entries: allIssueEntries, summary }
+    return { files: logFiles, issues, entries: allEntries, summary }
   }
 
   return { analyze }

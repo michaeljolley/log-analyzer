@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { AnalysisResult, LogArea } from '@/types'
+import type { AnalysisResult, LogArea, LogIssue } from '@/types'
 import SeverityBadge from './SeverityBadge.vue'
+import TimelineView from './TimelineView.vue'
 
 const props = defineProps<{
   result: AnalysisResult
@@ -9,7 +10,10 @@ const props = defineProps<{
 
 const MODULE_SELECTION_KEY = 'cmdpal-log-analyzer:selected-module'
 
+type ViewMode = 'issues' | 'timeline'
 type FilterLevel = 'all' | 'Error' | 'Warning' | 'Exception'
+
+const activeView = ref<ViewMode>('issues')
 const filterLevel = ref<FilterLevel>('all')
 const filterArea = ref<'all' | LogArea>('all')
 const expandedIndex = ref<number | null>(null)
@@ -36,13 +40,20 @@ function applyStoredArea() {
   filterArea.value = 'all'
 }
 
-const filteredEntries = computed(() => {
-  return props.result.entries.filter(entry => {
+const filteredIssues = computed(() => {
+  return props.result.issues.filter((issue) => {
     if (filterLevel.value === 'Exception') {
-      if (!entry.message.toLowerCase().includes('exception')) return false
-    } else if (filterLevel.value !== 'all' && entry.level !== filterLevel.value) {
+      if (!issue.message.toLowerCase().includes('exception')) return false
+    } else if (filterLevel.value !== 'all' && issue.level !== filterLevel.value) {
       return false
     }
+    if (filterArea.value !== 'all' && issue.logArea !== filterArea.value) return false
+    return true
+  })
+})
+
+const filteredTimelineEntries = computed(() => {
+  return props.result.entries.filter((entry) => {
     if (filterArea.value !== 'all' && entry.logArea !== filterArea.value) return false
     return true
   })
@@ -85,17 +96,20 @@ function formatModuleLabel(area: string) {
     .replace(/\s+/g, ' ')
     .trim()
 }
+
+function issueLabel(issue: LogIssue) {
+  return issue.message.toLowerCase().includes('exception') ? 'Exception' : issue.level
+}
 </script>
 
 <template>
   <div>
-    <!-- Summary Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       <div
         @click="clearFilters"
         :class="[
           'rounded-xl border p-5 shadow-sm cursor-pointer transition-all',
-          filterLevel === 'all'
+          filterLevel === 'all' && filterArea === 'all'
             ? 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 ring-2 ring-blue-300 dark:ring-blue-700'
             : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500'
         ]"
@@ -141,8 +155,39 @@ function formatModuleLabel(area: string) {
       </div>
     </div>
 
-    <!-- No issues state -->
-    <div v-if="result.entries.length === 0" class="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+    <div class="flex flex-wrap items-center gap-3 mb-6">
+      <button
+        type="button"
+        @click="activeView = 'issues'"
+        :class="['rounded-full px-4 py-2 text-sm font-medium transition-colors', activeView === 'issues' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700']"
+      >
+        Issues
+      </button>
+      <button
+        type="button"
+        @click="activeView = 'timeline'"
+        :class="['rounded-full px-4 py-2 text-sm font-medium transition-colors', activeView === 'timeline' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700']"
+      >
+        Timeline
+      </button>
+
+      <select
+        v-model="filterArea"
+        class="ml-auto px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="all">All Modules</option>
+        <option v-for="module in modules" :key="module" :value="module">{{ formatModuleLabel(module) }}</option>
+      </select>
+      <button
+        v-if="filterLevel !== 'all' || filterArea !== 'all'"
+        @click="clearFilters"
+        class="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+      >
+        Clear filters
+      </button>
+    </div>
+
+    <div v-if="result.issues.length === 0 && activeView === 'issues'" class="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
       <div class="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
         <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -152,9 +197,7 @@ function formatModuleLabel(area: string) {
       <p class="text-gray-500 dark:text-gray-400 mt-1">The logs look clean — no errors or warnings detected.</p>
     </div>
 
-    <!-- Sequential Entry List -->
-    <div v-else>
-      <!-- Filters -->
+    <div v-else-if="activeView === 'issues'" class="space-y-2">
       <div class="flex flex-wrap gap-3 mb-4">
         <select
           v-model="filterLevel"
@@ -165,62 +208,61 @@ function formatModuleLabel(area: string) {
           <option value="Warning">Warnings only</option>
           <option value="Exception">Exceptions only</option>
         </select>
-        <select
-          v-model="filterArea"
-          class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="all">All Modules</option>
-          <option v-for="module in modules" :key="module" :value="module">{{ formatModuleLabel(module) }}</option>
-        </select>
         <span class="text-sm text-gray-500 dark:text-gray-400 self-center">
-          {{ filteredEntries.length }} entr{{ filteredEntries.length !== 1 ? 'ies' : 'y' }}
+          {{ filteredIssues.length }} entr{{ filteredIssues.length !== 1 ? 'ies' : 'y' }}
         </span>
-        <button
-          v-if="filterLevel !== 'all' || filterArea !== 'all'"
-          @click="clearFilters"
-          class="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-        >
-          Clear filters
-        </button>
       </div>
 
-      <!-- Entries -->
-      <div class="space-y-2">
+      <div
+        v-for="(issue, idx) in filteredIssues"
+        :key="issue.id"
+        class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden"
+      >
         <div
-          v-for="(entry, idx) in filteredEntries"
-          :key="idx"
-          class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden"
+          @click="toggleExpanded(idx)"
+          class="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         >
-          <div
-            @click="toggleExpanded(idx)"
-            class="p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1">
-                  <SeverityBadge v-if="entry.level === 'Error' || entry.level === 'Warning'" :level="entry.message.toLowerCase().includes('exception') ? 'Exception' : entry.level" />
-                  <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{{ formatModuleLabel(entry.logArea) }}</span>
-                  <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">{{ entry.logDate }} {{ entry.timestamp }}</span>
-                </div>
-                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                  <span v-if="entry.sourceFile" class="text-gray-500 dark:text-gray-400">{{ entry.sourceFile }}::</span>{{ entry.method }}
-                </p>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mt-0.5 truncate">{{ entry.message }}</p>
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <SeverityBadge :level="issueLabel(issue)" />
+                <span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{{ formatModuleLabel(issue.logArea) }}</span>
+                <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">{{ issue.occurrences }} occurrence{{ issue.occurrences === 1 ? '' : 's' }}</span>
               </div>
-              <svg
-                :class="['w-5 h-5 text-gray-400 transition-transform shrink-0', expandedIndex === idx ? 'rotate-180' : '']"
-                fill="none" stroke="currentColor" viewBox="0 0 24 24"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
+              <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                <span v-if="issue.sourceFile" class="text-gray-500 dark:text-gray-400">{{ issue.sourceFile }}::</span>{{ issue.method }}
+              </p>
+              <p class="text-sm text-gray-600 dark:text-gray-400 mt-0.5 truncate">{{ issue.message }}</p>
             </div>
-          </div>
-          <!-- Expanded detail -->
-          <div v-if="expandedIndex === idx" class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-4 py-4">
-            <pre class="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">{{ entry.message }}</pre>
+            <svg
+              :class="['w-5 h-5 text-gray-400 transition-transform shrink-0', expandedIndex === idx ? 'rotate-180' : '']"
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
         </div>
+        <div v-if="expandedIndex === idx" class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 px-4 py-4">
+          <ul class="space-y-2 text-sm text-gray-700 dark:text-gray-200">
+            <li v-for="entry in issue.entries" :key="`${entry.logDate}-${entry.timestamp}-${entry.sourceFile}-${entry.method}`" class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+              <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <span>{{ entry.logDate }}</span>
+                <span class="font-mono">{{ entry.timestamp }}</span>
+                <span>{{ formatModuleLabel(entry.logArea) }}</span>
+              </div>
+              <p class="text-sm text-gray-900 dark:text-gray-100">{{ entry.message }}</p>
+            </li>
+          </ul>
+        </div>
       </div>
+    </div>
+
+    <div v-else class="space-y-4">
+      <div class="flex flex-wrap items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+        <span>Showing {{ filteredTimelineEntries.length }} of {{ result.entries.length }} log entries</span>
+        <span v-if="filterArea !== 'all'">for {{ formatModuleLabel(filterArea) }}</span>
+      </div>
+      <TimelineView :entries="filteredTimelineEntries" />
     </div>
   </div>
 </template>
